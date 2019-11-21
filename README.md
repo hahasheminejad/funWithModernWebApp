@@ -12,3 +12,9 @@ ami-04b9e92b5572fa0d1 >> Ubuntu
 
 
 aws.exe" cloudformation create-stack --stack-name test1 --template-body file://"/Users/goifelda/Desktop/Technical Learning Series/Modules/Reference/stack.yml" --region us-east-1 - test1
+
+
+s3 bucket that gets created - what name will it have ? 
+  
+  
+ 
