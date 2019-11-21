@@ -1,0 +1,86 @@
+Transform: S3Objects
+Resources:
+  misfitsDemonstrator:
+    Type: AWS::EC2::Instance
+    DependsOn: s3BucketForDemo
+    Properties:
+      InstanceType: t2.micro
+      ImageId: ami-04b9e92b5572fa0d1
+      KeyName: misfits
+      SecurityGroups:
+        - !Ref misfitsDemonstratorSG
+      UserData: !Base64 |
+        #!/bin/bash
+        apt-get update -qq
+        apt-get install -y apt-transport-https ca-certificates
+        apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+        echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | tee /etc/apt/sources.list.d/docker.list
+        apt-get update -qq
+        apt-get purge lxc-docker || true
+        apt-get -y install linux-image-extra-$(uname -r) linux-image-extra-virtual
+        apt-get -y install docker-engine
+        usermod -aG docker ubuntu
+        mkdir -p /etc/systemd/system/docker.service.d
+        printf "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375\n" >>  /etc/systemd/system/docker.service.d/docker.conf
+        systemctl daemon-reload
+        systemctl restart docker
+  misfitsDemonstratorSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Only SSH is needed for demo purposes.  In general - nothing else is really requird. 
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '2375'
+        ToPort: '2375'
+        CidrIp: 0.0.0.0/0
+  s3BucketForDemo:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+    DeletionPolicy: Retain
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      PolicyDocument:
+        Id: MyPolicy
+        Version: 2012-10-17
+        Statement:
+          - Sid: PublicReadForGetBucketObjects
+            Effect: Allow
+            Principal: '*'
+            Action: 's3:GetObject'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref s3BucketForDemo
+                - /*
+      Bucket: !Ref s3BucketForDemo
+  S3Object:
+    Type: AWS::S3::Object
+    Properties:
+      Target:
+        Bucket: !Ref s3BucketForDemo
+        Key: README.md
+        ContentType: text/markdown
+      Body: !Sub |
+        # My text file
+
+        This is my text file for ${ANameField}.
+        The region is ${AWS::Region} and my account ID is ${AWS::AccountId}.
+        This file is in the ${S3Bucket} bucket. The bucket ARN is ${S3Bucket.Arn},
+        and its website endpoint is ${S3Bucket.WebsiteURL}
+Parameters:
+  ANameField: 
+    Type: String
+    Default: "TestValueOfString"
