@@ -30,21 +30,16 @@ Mappings:
     PrivateTwo:
       CIDR: '10.0.3.0/24'
 
-
-
-
-
 Resources:
-
-
   misfitsDemonstrator:
     Type: AWS::EC2::Instance
     DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs ]
     Properties:
-      InstanceType: m3.xlarge
+      InstanceType: m5.xlarge
       ImageId: ami-0d5d9d301c853a04a
       KeyName: misfits
       IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
+      SubnetId: !Ref PublicSubnetOne
       SecurityGroupIds:
         - !GetAtt misfitsDemonstratorSG.GroupId
       UserData: 
@@ -108,8 +103,6 @@ Resources:
             Resource:
             - '*'
 
-
-
   misfitsDemonstratorSG:
     Type: AWS::EC2::SecurityGroup
     DependsOn: VPC
@@ -121,14 +114,12 @@ Resources:
         FromPort: '22'
         ToPort: '22'
         CidrIp: 0.0.0.0/0
+        
   s3BucketForDemo:
     Type: AWS::S3::Bucket
     Properties:
-      AccessControl: PublicRead
-      WebsiteConfiguration:
-        IndexDocument: index.html
-        ErrorDocument: error.html
-    DeletionPolicy: Retain
+      AccessControl: Private
+    DeletionPolicy: Delete
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -175,14 +166,16 @@ Resources:
     Properties:
       TaskRoleArn: !Ref ECSTaskRole
       ExecutionRoleArn: !Ref EcsServiceRole
+      Cpu: 256
+      Memory: 0.5GB
       Family: "mythicalmysfitsservice"
-      NetworkMode: "awsvpc"
+      RequiresCompatibilities: 
+        - FARGATE
+      NetworkMode: awsvpc
       ContainerDefinitions: 
         - 
           Name: MythicalMysfitsService
           Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest'
-          Cpu: "256"
-          Memory: "512"
           PortMappings: 
             - 
               ContainerPort: "8080"
@@ -194,16 +187,20 @@ Resources:
       ServiceName: MythicalMysfits-Service
       Cluster: !Ref MythicalMysfitsCluster
       DeploymentConfiguration: 
-        minimumHealthyPercent: 0
+        MinimumHealthyPercent: 0
       DesiredCount: 1
+      HealthCheckGracePeriodSeconds: 30
       LaunchType: FARGATE
       LoadBalancers: 
-        - !Ref MysfitsNLB
+        - ContainerName: MythicalMysfitsService
+          ContainerPort: '8080' 
+          TargetGroupArn: !Ref MysfitsNLBTargetGroup
       NetworkConfiguration: 
-        awsvpcConfiguration:
-          assignPublicIP: "Disabled"
-          securityGroups: !Ref FargateContainerSecurityGroup
-          subnets: [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          SecurityGroups: 
+            - !Ref FargateContainerSecurityGroup
+          Subnets: [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]
       TaskDefinition: !Ref MythicalMysfitTaskDefinition
 
 
@@ -225,6 +222,7 @@ Resources:
 # Create a Load Balancer Target Group
   MysfitsNLBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    DependsOn: MysfitsNLB
     Properties: 
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 30
@@ -248,7 +246,7 @@ Resources:
         TargetGroupArn: !Ref MysfitsNLBTargetGroup
       LoadBalancerArn: !Ref MysfitsNLB
       Port: '80'
-      Protocol: "HTTP"
+      Protocol: "TCP"
 
 
   VPC:
