@@ -31,17 +31,22 @@ Mappings:
       CIDR: '10.0.3.0/24'
 
 
+
+
+
 Resources:
+
+
   misfitsDemonstrator:
     Type: AWS::EC2::Instance
-    DependsOn: [s3BucketForDemo,MysfitsECRRepository ]
+    DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs ]
     Properties:
-      InstanceType: t2.micro
-      ImageId: ami-04b9e92b5572fa0d1
+      InstanceType: m3.xlarge
+      ImageId: ami-0d5d9d301c853a04a
       KeyName: misfits
       IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
-      SecurityGroups:
-        - !Ref misfitsDemonstratorSG
+      SecurityGroupIds:
+        - !GetAtt misfitsDemonstratorSG.GroupId
       UserData: 
          'Fn::Base64': !Sub |
             #!/bin/bash
@@ -59,6 +64,7 @@ Resources:
             systemctl daemon-reload
             systemctl restart docker
             apt-get  install -y awscli
+            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
             cd /tmp
             git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
             cd aws-modern-application-workshop/images
@@ -68,8 +74,10 @@ Resources:
             cd /tmp/aws-modern-application-workshop/module-2/app
             docker build . -t ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
             # aws ecr create-repository --repository-name mythicalmysfits/service
-            $(aws ecr get-login --no-include-email) 
-            
+            $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
+            docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
+            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
+
   misfitsDemonstratorIAMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
@@ -96,26 +104,22 @@ Resources:
           Statement:
           - Effect: Allow
             Action:
-            - 's3:*'
-            - 'ecr:*'
+            - '*'
             Resource:
             - '*'
+
+
+
   misfitsDemonstratorSG:
     Type: AWS::EC2::SecurityGroup
+    DependsOn: VPC
     Properties:
+      VpcId: !Ref VPC
       GroupDescription: Only SSH is needed for demo purposes.  In general - nothing else is really requird. 
       SecurityGroupIngress:
       - IpProtocol: tcp
-        FromPort: '80'
-        ToPort: '80'
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
-        CidrIp: 0.0.0.0/0
-      - IpProtocol: tcp
-        FromPort: '2375'
-        ToPort: '2375'
         CidrIp: 0.0.0.0/0
   s3BucketForDemo:
     Type: AWS::S3::Bucket
@@ -152,10 +156,99 @@ Resources:
   # We distribute the subnets across the first two available subnets
   # for the region, for high availability.
 
+   # Docker Stuff
   MysfitsECRRepository: 
     Type: AWS::ECR::Repository
     Properties: 
       RepositoryName: "mythicalmysfits/service"
+  MythicalMysfitsCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: "MythicalMysfits-Cluster"
+  MythicalMysfitsLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "mythicalmysfits-logs"
+      RetentionInDays: 7
+  MythicalMysfitTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      TaskRoleArn: !Ref ECSTaskRole
+      ExecutionRoleArn: !Ref EcsServiceRole
+      Family: "mythicalmysfitsservice"
+      NetworkMode: "awsvpc"
+      ContainerDefinitions: 
+        - 
+          Name: MythicalMysfitsService
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest'
+          Cpu: "256"
+          Memory: "512"
+          PortMappings: 
+            - 
+              ContainerPort: "8080"
+              Protocol: "http"
+
+  MythicalMysfitsService:
+    Type: AWS::ECS::Service
+    Properties: 
+      ServiceName: MythicalMysfits-Service
+      Cluster: !Ref MythicalMysfitsCluster
+      DeploymentConfiguration: 
+        minimumHealthyPercent: 0
+      DesiredCount: 1
+      LaunchType: FARGATE
+      LoadBalancers: 
+        - !Ref MysfitsNLB
+      NetworkConfiguration: 
+        awsvpcConfiguration:
+          assignPublicIP: "Disabled"
+          securityGroups: !Ref FargateContainerSecurityGroup
+          subnets: [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]
+      TaskDefinition: !Ref MythicalMysfitTaskDefinition
+
+
+
+
+# Create a Network Load Balancer
+
+  MysfitsNLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      IpAddressType: ipv4
+      Name: mysfits-nlb
+      Scheme: internet-facing
+      Subnets: 
+        - !Ref PublicSubnetOne 
+        - !Ref PublicSubnetTwo
+      Type: network
+
+# Create a Load Balancer Target Group
+  MysfitsNLBTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP 
+      HealthCheckTimeoutSeconds: 6
+      HealthyThresholdCount: 2
+      Name: MythicalMysfits-TargetGroup
+      Port: '8080'
+      Protocol: TCP
+      TargetType: ip
+      UnhealthyThresholdCount: 2
+      VpcId: !Ref VPC
+
+# Create a Load Balancer Listener
+  MysfitsLoadBalancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+      - Type: "forward"
+        TargetGroupArn: !Ref MysfitsNLBTargetGroup
+      LoadBalancerArn: !Ref MysfitsNLB
+      Port: '80'
+      Protocol: "HTTP"
 
 
   VPC:
