@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: This stack deploys an ec2 instance which accelerates the creation of the  
-            modern web application //github.com/aws-samples/aws-modern-application-workshop  network infrastructure and IAM resources
-             to be used for a service hosted in Amazon ECS using AWS Fargate.
+             modern web application //github.com/aws-samples/aws-modern-application-workshop  network infrastructure and IAM resources
+            to be used for a service hosted in Amazon ECS using AWS Fargate.  Adding to the change set. 
 
 # Module 2
 Mappings:
@@ -114,12 +114,15 @@ Resources:
         FromPort: '22'
         ToPort: '22'
         CidrIp: 0.0.0.0/0
-        
+  
   s3BucketForDemo:
     Type: AWS::S3::Bucket
     Properties:
-      AccessControl: Private
-    DeletionPolicy: Delete
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+    DeletionPolicy: Retain
   BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -134,14 +137,17 @@ Resources:
             Condition: 
               IpAddress:
                 aws:SourceIp:
-                - '54.240.193.1'
+                - '54.240.193.129'
             Resource: !Join 
               - ''
               - - 'arn:aws:s3:::'
                 - !Ref s3BucketForDemo
                 - /*
       Bucket: !Ref s3BucketForDemo
- 
+
+
+
+
   # Module 2 VPC in which containers will be networked.
   # It has two public subnets, and two private subnets.
   # We distribute the subnets across the first two available subnets
