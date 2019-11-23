@@ -127,22 +127,35 @@ Resources:
             systemctl restart docker
             apt-get  install -y awscli
             aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            cd /tmp
+            cd /usr/local
             git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
             cd aws-modern-application-workshop/images
             exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
             #aws s3 cp mysfits-welcome.png s3://${s3BucketForDemo}/
             #echo " module 2"
-            cd /tmp/aws-modern-application-workshop/module-2/app
+            cd /usr/local/aws-modern-application-workshop/module-2/app
             docker build . -t ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
-            # aws ecr create-repository --repository-name mythicalmysfits/service
             $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
             docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
             aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits >> /tmp/myelbURL
-            cd /tmp/aws-modern-application-workshop/module-2/web
-            sed -i "s/REPLACE_ME/$(cat /tmp/myelbURL)/g" index.html
+            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits >> /usr/local/myelbURL
+            cd /usr/local/aws-modern-application-workshop/module-2/web
+            sed -i "s/REPLACE_ME/$(cat /usr/local/myelbURL)/g" index.html
             aws s3 cp index.html s3://${!Ref s3BucketForDemo}/index.html
+            echo "First Code Modification"
+            mkdir /usr/local/environment
+            git config --global user.name "Event Simulator of manual input"
+            git config --global user.email eventSimulator@example.com
+            git config --global credential.helper '!aws codecommit credential-helper $@'
+            git config --global credential.UseHttpPath true
+            cd /usr/local/environment/
+            git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository
+            cd /usr/local/environment/MythicalMysfitsService-Repository/service
+            sed -i "s/Evangeline/Bellefontaine/g" mysfits-response.json
+            cd /usr/local/environment/MythicalMysfitsService-Repository/
+            git add .
+            git commit -m "We changed the name of Evangeline to Bellefontaine"
+            git push
   misfitsDemonstratorIAMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
@@ -284,7 +297,7 @@ Resources:
         HealthCheckGracePeriodSeconds: 30
         LaunchType: FARGATE
         LoadBalancers: 
-          - ContainerName: MythicalMysfitsService
+          - ContainerName: MythicalMysfits-Service
             ContainerPort: '8080' 
             TargetGroupArn: !Ref MysfitsNLBTargetGroup
         NetworkConfiguration: 
