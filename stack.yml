@@ -1,7 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: This stack deploys an ec2 instance which accelerates the creation of the  
-             modern web application //github.com/aws-samples/aws-modern-application-workshop  network infrastructure and IAM resources
-            to be used for a service hosted in Amazon ECS using AWS Fargate.  Adding to the change set. 
+Description: This stack deploys MythicalMysfits all the way to completion of Module 2 
 
 # Module 2
 Mappings:
@@ -31,9 +29,78 @@ Mappings:
       CIDR: '10.0.3.0/24'
 
 Resources:
+
+  s3BucketForArtifacts:
+    Type: AWS::S3::Bucket
+    Properties: 
+      AccessControl: Private
+  s3BucketPolicyForArtifactBucket:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref s3BucketForArtifacts
+      PolicyDocument: 
+        Statement:
+          - Sid: WhitelistedGet
+            Effect: Allow
+            Principal: 
+              AWS:
+                 - !GetAtt 'MythicalMysfitsServiceCodeBuildServiceRole.Arn'
+                 - !GetAtt 'MythicalMysfitsServiceCodePipelineServiceRole.Arn'
+
+            Action:
+              - 's3:GetObject'
+              - 's3:GetObjectVersion'
+              - 's3:GetBucketVersioning'
+            Resource: !Join 
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref s3BucketForArtifacts
+                - /*
+            Bucket: !Ref s3BucketForArtifacts
+        Statement:
+          - Sid: WhiteListedPut
+            Effect: Allow
+            Principal: 
+              AWS:
+              - !GetAtt 'MythicalMysfitsServiceCodeBuildServiceRole.Arn' 
+              - !GetAtt 'MythicalMysfitsServiceCodePipelineServiceRole.Arn'
+            Action:
+              - 's3:PutObject'
+            Resource: !Join 
+            - ''
+            - - 'arn:aws:s3:::'
+              - !Ref s3BucketForArtifacts
+              - /*
+  codeCommitRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Mythical Mysfits
+      RepositoryName: MythicalMysfitsService-Repository
+  codeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties: 
+      Artifacts: 
+        Type: no_artifacts
+      Name: MythicalMysfitsServiceCodeBuildProject
+      Environment: 
+        ComputeType: BUILD_GENERAL1_SMALL
+        EnvironmentVariables: 
+          -
+            Name: AWS_ACCOUNT_ID
+            Value: !Sub "${AWS::AccountId}"
+          -
+            Name: AWS_DEFAULT_REGION
+            Value: !Sub "${AWS::Region}" 
+        Image: aws/codebuild/python:3.5.2
+        PrivilegedMode: true
+        Type: LINUX_CONTAINER
+      ServiceRole: !Ref MythicalMysfitsServiceCodeBuildServiceRole
+      Source: 
+        Location: !Sub "https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository"
+        Type: CODECOMMIT
   misfitsDemonstrator:
     Type: AWS::EC2::Instance
-    DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs ]
+    DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB ]
     Properties:
       InstanceType: m5.xlarge
       ImageId: ami-0d5d9d301c853a04a
@@ -43,7 +110,7 @@ Resources:
       SecurityGroupIds:
         - !GetAtt misfitsDemonstratorSG.GroupId
       UserData: 
-         'Fn::Base64': !Sub |
+        'Fn::Base64': !Sub |
             #!/bin/bash
             apt-get update -qq
             apt-get install -y apt-transport-https ca-certificates
@@ -76,7 +143,6 @@ Resources:
             cd /tmp/aws-modern-application-workshop/module-2/web
             sed -i "s/REPLACE_ME/$(cat /tmp/myelbURL)/g" index.html
             aws s3 cp index.html s3://${!Ref s3BucketForDemo}/index.html
-
   misfitsDemonstratorIAMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
@@ -106,7 +172,6 @@ Resources:
             - '*'
             Resource:
             - '*'
-
   misfitsDemonstratorSG:
     Type: AWS::EC2::SecurityGroup
     DependsOn: VPC
@@ -117,8 +182,7 @@ Resources:
       - IpProtocol: tcp
         FromPort: '22'
         ToPort: '22'
-        CidrIp: 0.0.0.0/0
-  
+        CidrIp: 0.0.0.0/0 
   s3BucketForDemo:
     Type: AWS::S3::Bucket
     Properties:
@@ -128,37 +192,37 @@ Resources:
         ErrorDocument: error.html
     DeletionPolicy: Retain
   BucketPolicy:
-    Type: AWS::S3::BucketPolicy
-    Properties:
-      PolicyDocument:
-        Id: MyPolicy
-        Version: 2012-10-17
-        Statement:
-          - Sid: PublicReadForGetBucketObjects
-            Effect: Allow
-            Principal: '*'
-            Action: 's3:GetObject'
-            Condition: 
-              IpAddress:
-                aws:SourceIp:
-                - '54.240.193.129'
-                - '58.173.163.189'
-            Resource: !Join 
-              - ''
-              - - 'arn:aws:s3:::'
-                - !Ref s3BucketForDemo
-                - /*
-      Bucket: !Ref s3BucketForDemo
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        PolicyDocument:
+          Id: MyPolicy
+          Version: 2012-10-17
+          Statement:
+            - Sid: PublicReadForGetBucketObjects
+              Effect: Allow
+              Principal: '*'
+              Action: 's3:GetObject'
+              Condition: 
+                IpAddress:
+                  aws:SourceIp:
+                  - '54.240.193.129'
+                  - '58.173.163.189'
+              Resource: !Join 
+                - ''
+                - - 'arn:aws:s3:::'
+                  - !Ref s3BucketForDemo
+                  - /*
+        Bucket: !Ref s3BucketForDemo
 
 
 
 
-  # Module 2 VPC in which containers will be networked.
-  # It has two public subnets, and two private subnets.
-  # We distribute the subnets across the first two available subnets
-  # for the region, for high availability.
+    # Module 2 VPC in which containers will be networked.
+    # It has two public subnets, and two private subnets.
+    # We distribute the subnets across the first two available subnets
+    # for the region, for high availability.
 
-   # Docker Stuff
+    # Docker Stuff
   MysfitsECRRepository: 
     Type: AWS::ECR::Repository
     Properties: 
@@ -191,34 +255,27 @@ Resources:
             - 
               ContainerPort: "8080"
               Protocol: "http"
-
   MythicalMysfitsService:
-    Type: AWS::ECS::Service
-    Properties: 
-      ServiceName: MythicalMysfits-Service
-      Cluster: !Ref MythicalMysfitsCluster
-      DeploymentConfiguration: 
-        MinimumHealthyPercent: 0
-      DesiredCount: 1
-      HealthCheckGracePeriodSeconds: 30
-      LaunchType: FARGATE
-      LoadBalancers: 
-        - ContainerName: MythicalMysfitsService
-          ContainerPort: '8080' 
-          TargetGroupArn: !Ref MysfitsNLBTargetGroup
-      NetworkConfiguration: 
-        AwsvpcConfiguration:
-          AssignPublicIp: DISABLED
-          SecurityGroups: 
-            - !Ref FargateContainerSecurityGroup
-          Subnets: [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]
-      TaskDefinition: !Ref MythicalMysfitTaskDefinition
-
-
-
-
-# Create a Network Load Balancer
-
+      Type: AWS::ECS::Service
+      Properties: 
+        ServiceName: MythicalMysfits-Service
+        Cluster: !Ref MythicalMysfitsCluster
+        DeploymentConfiguration: 
+          MinimumHealthyPercent: 0
+        DesiredCount: 1
+        HealthCheckGracePeriodSeconds: 30
+        LaunchType: FARGATE
+        LoadBalancers: 
+          - ContainerName: MythicalMysfitsService
+            ContainerPort: '8080' 
+            TargetGroupArn: !Ref MysfitsNLBTargetGroup
+        NetworkConfiguration: 
+          AwsvpcConfiguration:
+            AssignPublicIp: DISABLED
+            SecurityGroups: 
+              - !Ref FargateContainerSecurityGroup
+            Subnets: [!Ref PrivateSubnetOne, !Ref PrivateSubnetTwo]
+        TaskDefinition: !Ref MythicalMysfitTaskDefinition
   MysfitsNLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties: 
@@ -229,8 +286,6 @@ Resources:
         - !Ref PublicSubnetOne 
         - !Ref PublicSubnetTwo
       Type: network
-
-# Create a Load Balancer Target Group
   MysfitsNLBTargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     DependsOn: MysfitsNLB
@@ -247,8 +302,6 @@ Resources:
       TargetType: ip
       UnhealthyThresholdCount: 2
       VpcId: !Ref VPC
-
-# Create a Load Balancer Listener
   MysfitsLoadBalancerListener:
     Type: "AWS::ElasticLoadBalancingV2::Listener"
     Properties:
