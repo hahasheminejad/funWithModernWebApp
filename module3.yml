@@ -206,6 +206,8 @@ Resources:
             sudo -u ubuntu sh -c "git add ."
             sudo -u ubuntu sh -c "git commit -m \"We changed the name of Evangeline to Bellefontaine\""
             sudo -u ubuntu sh -c "git push"
+            echo "module 3"
+            aws dynamodb batch-write-item --request-items file:///usr/local/aws-modern-application-workshop/module-3/aws-cli/populate-dynamodb.json
   misfitsDemonstratorIAMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties: 
