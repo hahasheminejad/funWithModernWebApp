@@ -20,3 +20,13 @@ s3 bucket that gets created - what name will it have ?
  
 1. Create a key called misfits
 2. What is elbv2 vs ELB
+aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits
+
+
+
+CLEAN UP REQUIREMENTS: 
+
+- 1. delete all images in ECR registry
+- 2. Delete artifacts bucket
+- 3. Delete app bucket
+- 4. Delete the stack. 
