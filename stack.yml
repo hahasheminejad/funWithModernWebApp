@@ -72,6 +72,10 @@ Resources:
             $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
             docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
             aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
+            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits >> /tmp/myelbURL
+            cd /tmp/aws-modern-application-workshop/module-2/web
+            sed -i "s/REPLACE_ME/$(cat /tmp/myelbURL)/g" index.html
+            aws s3 cp index.html s3://${!Ref s3BucketForDemo}/index.html
 
   misfitsDemonstratorIAMInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -138,6 +142,7 @@ Resources:
               IpAddress:
                 aws:SourceIp:
                 - '54.240.193.129'
+                - '58.173.163.189'
             Resource: !Join 
               - ''
               - - 'arn:aws:s3:::'
@@ -692,3 +697,8 @@ Outputs:
     Value: !GetAtt 'MythicalMysfitsServiceCodePipelineServiceRole.Arn'
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'MythicalMysfitsServiceCodePipelineServiceRole' ] ]
+  WebsiteURL:
+    Description: URL to go to for testing NLB
+    Value: !GetAtt 'MysfitsNLB.DNSName'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'MysfitsNLB' ] ]

@@ -19,3 +19,4 @@ s3 bucket that gets created - what name will it have ?
   
  
 1. Create a key called misfits
+2. What is elbv2 vs ELB
