@@ -229,6 +229,12 @@ Resources:
             git add .
             git commit -m "Add new integration to DynamoDB."
             git push
+            cd /usr/local/
+            echo "Modify Index HTML for DynamoDB"
+            cd /usr/local/aws-modern-application-workshop/module-3/web/
+            sed -i "s/REPLACE_ME/http:\/\/$(cat /usr/local/myelbURL)/g" index.html
+            aws s3 cp index.html s3://${s3BucketForDemo}/index.html
+
 
 
 
@@ -385,6 +391,7 @@ Resources:
                   aws:SourceIp:
                   - '54.240.193.129'
                   - '58.173.163.189'
+                  - '52.95.4.13'
               Resource: !Join 
                 - ''
                 - - 'arn:aws:s3:::'
