@@ -187,7 +187,7 @@ Resources:
             $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
             docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
             aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits > /usr/local/myelbURL
+            aws elbv2 describe-load-balancers --region us-east-2 --query   --output text |grep mysfits > /usr/local/myelbURL
             cd /usr/local/aws-modern-application-workshop/module-2/web
             sed -i "s/REPLACE_ME/$(cat /usr/local/myelbURL)/g" index.html
             echo "need to sleeep for a few minutes due template creation"

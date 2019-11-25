@@ -216,11 +216,11 @@ Resources:
 
 
   #module5
-  module4S3Updates6:
+  module5gh:
       Type: AWS::EC2::Instance
-      DependsOn: [ApiGateWayVPCLink]
+      DependsOn: [codeCommitStreamingRepository, s3BucketForStreamingCode]
       Properties:
-        InstanceType: m5.xlarge
+        InstanceType: c5.4xlarge
         ImageId: ami-0d5d9d301c853a04a
         KeyName: misfits
         IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
@@ -232,20 +232,69 @@ Resources:
               #!/bin/bash
               exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
               apt-get update -qq
-              apt-get install awscli -y
+              apt-get install awscli python-pip apache2 linuxbrew-wrapper -y
+              /etc/init.d/apache2 start
               cd /usr/local
               git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
-              cd /usr/local/aws-modern-application-workshop/module-4/web
-              #sed -i "s/awsRegion = 'REPLACE_ME'/awsRegion = \'${AWS::Region}\'/g" index.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" index.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" index.html
-              #sed -i "s/REPLACE_ME/https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod/g" index.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" register.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" register.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" confirm.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" confirm.html
+              cd /usr/local/aws-modern-application-workshop/module-5/web
+              sed -i "s/awsRegion = 'REPLACE_ME'/awsRegion = \'${AWS::Region}\'/g" index.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" index.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" index.html
+              sed -i "s/mysfitsApiEndpoint = 'REPLACE_ME'/mysfitsApiEndpoint = \'https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" register.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" register.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" confirm.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" confirm.html
               #aws s3 cp --recursive /usr/local/aws-modern-application-workshop/module-4/web/ s3://${s3BucketForDemo}/
+              cp -R /usr/local/aws-modern-application-workshop/module-5/web/* /var/www/html/
+              mkdir /usr/local/project
+              cd /usr/local/project/
+              chmod -R a+wr  .
+              git config --global http.sslVerify false
+              git config --global credential.UseHttpPath true
+              git config --global user.name "EventInstance"
+              git config --global user.email eventSimulator@example.com
+              git config --global credential.helper '!aws codecommit credential-helper $@'
+              git config --system credential.helper '!aws codecommit credential-helper $@'
+              git config --system credential.UseHttpPath true
+              git config --system http.sslVerify false
+              git config --system user.email eventSimulator@example.com
+              git config --system user.name "EventInstance"
+              git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsStreamingService-Repository
+              cd /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              cp -r /usr/local/aws-modern-application-workshop/module-5/app/streaming/* /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              cp -r /usr/local/aws-modern-application-workshop/module-5/cfn/* /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              pip install requests -t .
+              sed -i "s/REPLACE_ME_API_ENDPOINT/https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod/g" /usr/local/project/MythicalMysfitsStreamingService-Repository/streamProcessor.py
+              git add .
+              git commit -m "New stream processing service."
+              git push
+              su - ubuntu -c 'linuxbrew --version'
+              su - ubuntu -c 'linuxbrew tap aws/tap'
+              su - ubuntu -c 'linuxbrew install aws-sam-cli'
+              /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.32.0/bin/sam --version
+              pwd
+              /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.32.0/bin/sam package --template-file ./real-time-streaming.yml --output-template-file ./transformed-streaming.yml  --s3-bucket ${s3BucketForStreamingCode}
+              aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsStreamingService-Repository/transformed-streaming.yml --stack-name MythicalMysfitsStreamingStack --capabilities CAPABILITY_IAM --region ${AWS::Region}
+              cd /var/www/html/
+              aws cloudformation describe-stack-resources --stack-name MythicalMysfitsStreamingStack --region us-east-2 --query 'StackResources[?LogicalResourceId==`ClickProcessingApi`].[PhysicalResourceId]' --output text >> /usr/local/project/streamingapiendpoint.txt
+              sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'http:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod/g" index.html
+              aws s3 cp index.html s3://${s3BucketForDemo}/
 
+  s3BucketForStreamingCode:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+               
+
+
+
+  codeCommitStreamingRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Mythical Mysfits
+      RepositoryName: MythicalMysfitsStreamingService-Repository
+  
 
 
 
