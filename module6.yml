@@ -244,7 +244,7 @@ Resources:
     Type: AWS::S3::Bucket
     Properties:
       AccessControl: Private
-  module6b:
+  module6fC:
       Type: AWS::EC2::Instance
       DependsOn: [codeCommitStreamingRepository, s3BucketForStreamingCode]
       Properties:
@@ -285,22 +285,52 @@ Resources:
               su - ubuntu -c 'linuxbrew tap aws/tap'
               su - ubuntu -c 'linuxbrew install aws-sam-cli'
               /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam --version              
+              #/home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam package --template-file ./customer-questions.yml --output-template-file ./transformed-questions.yml  --s3-bucket ${s3BucketForQuestionsService}
+              #aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-questions.yml --stack-name MythicalMysfitsQuestionsService-Stack --capabilities CAPABILITY_IAM --parameter-overrides AdministratorEmailAddress=${EmailAddress} --region ${AWS::Region}
+              
+              # stack created
+              cd /usr/local/aws-modern-application-workshop/module-6/web
+              sed -i "s/awsRegion = 'REPLACE_ME'/awsRegion = \'${AWS::Region}\'/g" index.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" index.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" index.html
+
+              sed -i "s/mysfitsApiEndpoint = 'REPLACE_ME'/mysfitsApiEndpoint = \'https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[?name==`MysfitsApi`].[id]' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              # streaming API change in index.html
+              aws cloudformation describe-stack-resources --stack-name MythicalMysfitsStreamingStack --region us-east-2 --query 'StackResources[?LogicalResourceId==`ClickProcessingApi`].[PhysicalResourceId]' --output text >> /usr/local/project/streamingapiendpoint.txt
+              sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'https:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              #questions API change in index.html
+              aws cloudformation describe-stack-resources --stack-name MythicalMysfitsQuestionsService-Stack --region us-east-2 --query 'StackResources[?LogicalResourceId==`QuestionsApi`].[PhysicalResourceId]' --output text >> /usr/local/project/questionsapi.txt
+              sed -i "s/questionsApiEndpoint = 'REPLACE_ME'/questionsApiEndpoint = \'https:\/\/$(cat /usr/local/project/questionsapi.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              
+              aws s3 cp index.html s3://${s3BucketForDemo}/
+
+              aws apigateway update-stage --rest-api-id $(cat /usr/local/project/questionsapi.txt) --region "${AWS::Region}" --stage-name prod --patch-operations op=replace,path=/tracingEnabled,value=true
+              
+              cd /usr/local/project/MythicalMysfitsQuestionsService-Repository/
+              sed -i "s/\#patch/patch/g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/\#from/from/g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/\#patch/patch/g" ProcessQuestionsStream/mysfitsProcessStream.py
+              sed -i "s/\#from/from/g" ProcessQuestionsStream/mysfitsProcessStream.py
+              sed -i "s/\#//g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/UNCOMMENT/\#UNCOMMENT/g" PostQuestionsService/mysfitsPostQuestion.py
               /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam package --template-file ./customer-questions.yml --output-template-file ./transformed-questions.yml  --s3-bucket ${s3BucketForQuestionsService}
               aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-questions.yml --stack-name MythicalMysfitsQuestionsService-Stack --capabilities CAPABILITY_IAM --parameter-overrides AdministratorEmailAddress=${EmailAddress} --region ${AWS::Region}
               
-              #sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'http:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
-              #aws s3 cp index.html s3://${s3BucketForDemo}/
+
+              
+              #PREVIOUS CODE JUST FOR TESTING: 
+
               #aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-streaming.yml --stack-name MythicalMysfitsStreamingStack --capabilities CAPABILITY_IAM --region ${AWS::Region}
               
-              #cd /usr/local/aws-modern-application-workshop/module-5/web
-              #sed -i "s/awsRegion = 'REPLACE_ME'/awsRegion = \'${AWS::Region}\'/g" index.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" index.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" index.html
-              #sed -i "s/mysfitsApiEndpoint = 'REPLACE_ME'/mysfitsApiEndpoint = \'https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" register.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" register.html
-              #sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" confirm.html
-              #sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" confirm.html
+              #
+              #
+              #
+              cp -R /usr/local/aws-modern-application-workshop/module-5/web/* /var/www/html/
+              cp -R /usr/local/aws-modern-application-workshop/module-6/web/* /var/www/html/
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" register.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" register.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" confirm.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" confirm.html
               #aws s3 cp --recursive /usr/local/aws-modern-application-workshop/module-4/web/ s3://${s3BucketForDemo}/
               #cp -R /usr/local/aws-modern-application-workshop/module-5/web/* /var/www/html/
               #mkdir /usr/local/project
@@ -321,7 +351,7 @@ Resources:
               #/home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.32.0/bin/sam --version
               #pwd
               #cd /var/www/html/
-              #aws cloudformation describe-stack-resources --stack-name MythicalMysfitsStreamingStack --region us-east-2 --query 'StackResources[?LogicalResourceId==`ClickProcessingApi`].[PhysicalResourceId]' --output text >> /usr/local/project/streamingapiendpoint.txt
+              #
 
 
 
