@@ -216,7 +216,7 @@ Resources:
 
 
   #module5
-  module5gh:
+  module5i:
       Type: AWS::EC2::Instance
       DependsOn: [codeCommitStreamingRepository, s3BucketForStreamingCode]
       Properties:
@@ -278,7 +278,7 @@ Resources:
               aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsStreamingService-Repository/transformed-streaming.yml --stack-name MythicalMysfitsStreamingStack --capabilities CAPABILITY_IAM --region ${AWS::Region}
               cd /var/www/html/
               aws cloudformation describe-stack-resources --stack-name MythicalMysfitsStreamingStack --region us-east-2 --query 'StackResources[?LogicalResourceId==`ClickProcessingApi`].[PhysicalResourceId]' --output text >> /usr/local/project/streamingapiendpoint.txt
-              sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'http:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod/g" index.html
+              sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'http:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
               aws s3 cp index.html s3://${s3BucketForDemo}/
 
   s3BucketForStreamingCode:
