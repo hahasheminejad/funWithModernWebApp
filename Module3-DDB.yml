@@ -1,6 +1,30 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: This stack deploys MythicalMysfits all the way to completion of Module 2 
 
+Parameters:
+  EmailAddress:
+    Description: This must be valid email address as it will be verified for the purposes of the app by SNS
+    Type: String
+    Default: goifelda@amazon.com
+  Module:
+    Description: Which module we are doing
+    Type: String
+    Default: Module2
+  Rating: 
+    Description: Tell us what you think of the event so far out of 5 where 5 is great, and 1 really bad
+    Type: String
+    Default: CHANGE_ME_TO_A_NUMBER
+  Comment: 
+    Description: General feedback - one sentence
+    Type: String
+    Default: "Saying Hello"
+  Feeling: 
+    Description: Are you bored? or is this too hard ? is everything we are sharing OK ? Good ? Bad ? Let us know in one word 
+    Type: String
+    Default: CHANGE_ME_TO_ONE_WORD
+
+
+
 # Module 2
 Mappings:
   # Hard values for the subnet masks. These masks define
@@ -143,13 +167,13 @@ Resources:
         Location: !Sub "https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository"
         Type: CODECOMMIT
 
-  misfitsDemonstratorV6:
+  misfitsDemonstratorModule3:
     Type: AWS::EC2::Instance
     DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB, dynamodbTable ]
     Properties:
       InstanceType: m5.xlarge
       ImageId: ami-0d5d9d301c853a04a
-      KeyName: misfits
+      KeyName: mysfits
       IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
       SubnetId: !Ref PublicSubnetOne
       SecurityGroupIds:
@@ -171,28 +195,14 @@ Resources:
             printf "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375\n" >>  /etc/systemd/system/docker.service.d/docker.conf
             systemctl daemon-reload
             systemctl restart docker
-            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
             cd /usr/local
             git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
-            cd aws-modern-application-workshop/images
             exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-            #aws s3 cp mysfits-welcome.png s3://${s3BucketForDemo}/
             #echo " module 2"
             cd /usr/local/aws-modern-application-workshop/
             chmod -R a+wr  .
-            cd /usr/local/aws-modern-application-workshop/module-2/app
-            docker build . -t ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
-            $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
-            docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
             aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
             aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits > /usr/local/myelbURL
-            cd /usr/local/aws-modern-application-workshop/module-2/web
-            sed -i "s/REPLACE_ME/$(cat /usr/local/myelbURL)/g" index.html
-            echo "need to sleeep for a few minutes due template creation"
-            sleep 30
-            echo "done sleeping for 30 seconds"
-            aws s3 cp index.html s3://${s3BucketForDemo}/index.html
-            echo "First Code Modification"
             mkdir /usr/local/project
             cd /usr/local/project/
             git init
@@ -208,21 +218,7 @@ Resources:
             git config --global credential.UseHttpPath true
             $(aws ecr get-login --no-include-email --region ${AWS::Region})       
             git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository
-            cp -r /usr/local/aws-modern-application-workshop/module-2/app/* /usr/local/project/MythicalMysfitsService-Repository/            
-            cd /usr/local/project/MythicalMysfitsService-Repository/service/
-            sed -i "s/Evangeline/Bellefontaine/g" mysfits-response.json
-            cd .. 
-            git add .
-            git commit -m "We changed the name of Evangeline to Bellefontaine"
-            git push
             echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            sleep 60
             aws dynamodb batch-write-item --request-items file:///usr/local/aws-modern-application-workshop/module-3/aws-cli/populate-dynamodb.json --region ${AWS::Region}
             cp /usr/local/aws-modern-application-workshop/module-3/app/service/* /usr/local/project/MythicalMysfitsService-Repository/service/
             cd /usr/local/project/MythicalMysfitsService-Repository/
@@ -234,94 +230,11 @@ Resources:
             cd /usr/local/aws-modern-application-workshop/module-3/web/
             sed -i "s/REPLACE_ME/http:\/\/$(cat /usr/local/myelbURL)/g" index.html
             aws s3 cp index.html s3://${s3BucketForDemo}/index.html
+            curl -X POST https://bj6bdmrb81.execute-api.us-east-1.amazonaws.com/prod/FeedbackService --data '{ "module": "${Module}","feeling":"${Feeling}","comment":"${Comment}", "email": "${EmailAddress}", "accountId": ${AWS::AccountId}, "rating":"${Rating}" }'
 
 
 
 
-
-  misfitsDemonstrator:
-    Type: AWS::EC2::Instance
-    DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB, dynamodbTable ]
-    Properties:
-      InstanceType: m5.xlarge
-      ImageId: ami-0d5d9d301c853a04a
-      KeyName: misfits
-      IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
-      SubnetId: !Ref PublicSubnetOne
-      SecurityGroupIds:
-        - !GetAtt misfitsDemonstratorSG.GroupId
-      UserData: 
-        'Fn::Base64': !Sub |
-            #!/bin/bash
-            apt-get update -qq
-            apt-get install -y apt-transport-https ca-certificates
-            apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-            echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | tee /etc/apt/sources.list.d/docker.list
-            apt-get update -qq
-            apt-get purge lxc-docker || true
-            apt-get -y install linux-image-extra-$(uname -r) linux-image-extra-virtual
-            apt-get -y install docker-engine
-            apt-get  install -y awscli
-            usermod -aG docker ubuntu
-            mkdir -p /etc/systemd/system/docker.service.d
-            printf "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375\n" >>  /etc/systemd/system/docker.service.d/docker.conf
-            systemctl daemon-reload
-            systemctl restart docker
-            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            cd /usr/local
-            git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
-            cd aws-modern-application-workshop/images
-            exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-            #aws s3 cp mysfits-welcome.png s3://${s3BucketForDemo}/
-            #echo " module 2"
-            cd /usr/local/aws-modern-application-workshop/
-            chmod -R a+wr  .
-            cd /usr/local/aws-modern-application-workshop/module-2/app
-            docker build . -t ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
-            $(aws ecr get-login --no-include-email --region ${AWS::Region}) 
-            docker push ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/mythicalmysfits/service:latest
-            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits > /usr/local/myelbURL
-            cd /usr/local/aws-modern-application-workshop/module-2/web
-            sed -i "s/REPLACE_ME/$(cat /usr/local/myelbURL)/g" index.html
-            echo "need to sleeep for a few minutes due template creation"
-            sleep 30
-            echo "done sleeping for 30 seconds"
-            aws s3 cp index.html s3://${s3BucketForDemo}/index.html
-            echo "First Code Modification"
-            mkdir /usr/local/project
-            cd /usr/local/project/
-            chmod -R a+wr  .
-            git config --system http.sslVerify false
-            git config --system user.email eventSimulator@example.com
-            git config --global user.name "EventInstance"
-            git config --global user.email eventSimulator@example.com
-            git config --global credential.helper '!aws codecommit credential-helper $@'
-            git config --system credential.helper '!aws codecommit credential-helper $@'
-            git config --global credential.UseHttpPath true
-            $(aws ecr get-login --no-include-email --region ${AWS::Region})            
-            git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository
-            cp -r /usr/local/aws-modern-application-workshop/module-2/app/* /usr/local/project/MythicalMysfitsService-Repository/
-            cd /usr/local/project/MythicalMysfitsService-Repository/service"
-            sed -i \"s/Evangeline/Bellefontaine/g\" mysfits-response.json"
-            cd .. 
-            git add .
-            git commit -m \"We changed the name of Evangeline to Bellefontaine\"
-            git push
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            echo "module 3"
-            sleep 60
-            aws dynamodb batch-write-item --request-items file:///usr/local/aws-modern-application-workshop/module-3/aws-cli/populate-dynamodb.json --region ${AWS::Region}
-            cp /usr/local/aws-modern-application-workshop/module-3/app/service/* /usr/local/project/MythicalMysfitsService-Repository/service/
-            cd /usr/local/project/MythicalMysfitsService-Repository/
-            git add .
-            git commit -m \"Add new integration to DynamoDB.\"
-            git push
 
 
 
