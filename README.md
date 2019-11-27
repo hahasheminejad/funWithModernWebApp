@@ -1,8 +1,20 @@
+![mysfits-welcome](/images/module-1/mysfits-welcome.png)
+
 # funWithModernWebApp
-ModernWebApp 
+
+What are we doing: 
+
 In this tutorial we build the first set of components of the modern web app.  To accelerate our application launching we are going to put a lot of material from https://github.com/aws-samples/aws-modern-application-workshop/tree/python into cloudformation.  
 
 # Step one - get all the prerequisites
+
+1. Log in to your AWS Account
+
+2. Choose the region Ohio - Us-east-2
+
+
+
+
 - https://www.ssh.com/ssh/putty/windows/puttygen
 
 https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/putty.html#putty-private-key
