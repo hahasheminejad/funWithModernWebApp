@@ -1,27 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: This stack deploys MythicalMysfits all the way to completion of Module 3 
+Description: This stack deploys MythicalMysfits all the way to completion of Module 2 
 
 Parameters:
   EmailAddress:
-    Description: This must be valid email address as it will be verified for the purposes of the app by SNS
+    Description: ParameterDescription
     Type: String
     Default: goifelda@amazon.com
-  Module:
-    Description: Which module we are doing
-    Type: String
-    Default: Module2
-  Rating: 
-    Description: Tell us what you think of the event so far out of 5 where 5 is great, and 1 really bad
-    Type: String
-    Default: CHANGE_ME_TO_A_NUMBER
-  Comment: 
-    Description: General feedback - one sentence
-    Type: String
-    Default: "Saying Hello"
-  Feeling: 
-    Description: Are you bored? or is this too hard ? is everything we are sharing OK ? Good ? Bad ? Let us know in one word 
-    Type: String
-    Default: CHANGE_ME_TO_ONE_WORD
 
 
 
@@ -167,76 +151,207 @@ Resources:
         Location: !Sub "https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository"
         Type: CODECOMMIT
 
-  misfitsDemonstratorModule3:
+
+
+
+  # module 4 work
+  CognitoUserPool:
+    Type: AWS::Cognito::UserPool
+    Properties: 
+      AutoVerifiedAttributes: 
+        - email
+      UserPoolName: MysfitsUserPool
+  CognitoUserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties: 
+      ClientName: MysfitsUserPoolClient
+      UserPoolId: !Ref CognitoUserPool
+  ApiGateWayVPCLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties: 
+      Name: MysfitsApiVpcLink
+      TargetArns: 
+        - !Ref MysfitsNLB
+  swaggerApiGWFargateUpdateDeployer:
     Type: AWS::EC2::Instance
-    DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB, dynamodbTable ]
+    DependsOn: [ApiGateWayVPCLink]
     Properties:
       InstanceType: m5.xlarge
       ImageId: ami-0d5d9d301c853a04a
-      KeyName: mysfits
+      KeyName: misfits
       IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
       SubnetId: !Ref PublicSubnetOne
       SecurityGroupIds:
         - !GetAtt misfitsDemonstratorSG.GroupId
       UserData: 
-        'Fn::Base64': !Sub |
-            #!/bin/bash
-            apt-get update -qq
-            apt-get install -y apt-transport-https ca-certificates
-            apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-            echo "deb https://apt.dockerproject.org/repo ubuntu-xenial main" | tee /etc/apt/sources.list.d/docker.list
-            apt-get update -qq
-            apt-get purge lxc-docker || true
-            apt-get -y install linux-image-extra-$(uname -r) linux-image-extra-virtual
-            apt-get -y install docker-engine
-            apt-get  install -y awscli
-            usermod -aG docker ubuntu
-            mkdir -p /etc/systemd/system/docker.service.d
-            printf "[Service]\nExecStart=\nExecStart=/usr/bin/dockerd -H fd:// -H tcp://0.0.0.0:2375\n" >>  /etc/systemd/system/docker.service.d/docker.conf
-            systemctl daemon-reload
-            systemctl restart docker
-            cd /usr/local
-            git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
-            exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
-            #echo " module 2"
-            cd /usr/local/aws-modern-application-workshop/
-            chmod -R a+wr  .
-            aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 
-            aws elbv2 describe-load-balancers --region us-east-2 --query 'LoadBalancers[*].DNSName' --output text |grep mysfits > /usr/local/myelbURL
-            mkdir /usr/local/project
-            cd /usr/local/project/
-            git init
-            chmod -R a+wr  .
-            git config --system credential.UseHttpPath true
-            git config --system http.sslVerify false
-            git config --system user.email eventSimulator@example.com
-            git config --system credential.helper '!aws codecommit credential-helper $@'
-            git config --system user.name "EventInstance"
-            git config --global user.name "EventInstance"
-            git config --global user.email eventSimulator@example.com
-            git config --global credential.helper '!aws codecommit credential-helper $@'
-            git config --global credential.UseHttpPath true
-            $(aws ecr get-login --no-include-email --region ${AWS::Region})       
-            git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository
-            echo "module 3"
-            aws dynamodb batch-write-item --request-items file:///usr/local/aws-modern-application-workshop/module-3/aws-cli/populate-dynamodb.json --region ${AWS::Region}
-            cp /usr/local/aws-modern-application-workshop/module-3/app/service/* /usr/local/project/MythicalMysfitsService-Repository/service/
-            cd /usr/local/project/MythicalMysfitsService-Repository/
-            git add .
-            git commit -m "Add new integration to DynamoDB."
-            git push
-            cd /usr/local/
-            echo "Modify Index HTML for DynamoDB"
-            cd /usr/local/aws-modern-application-workshop/module-3/web/
-            sed -i "s/REPLACE_ME/http:\/\/$(cat /usr/local/myelbURL)/g" index.html
-            aws s3 cp index.html s3://${s3BucketForDemo}/index.html
-            curl -X POST https://bj6bdmrb81.execute-api.us-east-1.amazonaws.com/prod/FeedbackService --data '{ "module": "${Module}","feeling":"${Feeling}","comment":"${Comment}", "email": "${EmailAddress}", "accountId": ${AWS::AccountId}, "rating":"${Rating}" }'
+        Fn::Base64: 
+          Fn::Sub:
+            - |
+              #!/bin/bash
+              exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+              apt-get update -qq
+              apt-get install awscli -y
+              cd /usr/local
+              git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
+              cd /usr/local/aws-modern-application-workshop/module-4/aws-cli
+              sed -i "s/REPLACE_ME_REGION/${AWS::Region}/g" api-swagger.json
+              sed -i "s/REPLACE_ME_ACCOUNT_ID/${AWS::AccountId}/g" api-swagger.json
+              sed -i "s/REPLACE_ME_COGNITO_USER_POOL_ID/${CognitoUserPool}/g" api-swagger.json
+              sed -i "s/REPLACE_ME_NLB_DNS/${NLBDnsName}/g" api-swagger.json
+              sed -i "s/REPLACE_ME_VPC_LINK_ID/${ApiGateWayVPCLink}/g" api-swagger.json
+              aws apigateway import-rest-api --parameters endpointConfigurationTypes=REGIONAL --body file:///usr/local/aws-modern-application-workshop/module-4/aws-cli/api-swagger.json --fail-on-warnings --region "${AWS::Region}"
+              aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text > /usr/local/myApiID
+              aws apigateway create-deployment --rest-api-id $(cat /usr/local/myApiID) --stage-name prod --region ${AWS::Region}
+              git config --system credential.UseHttpPath true
+              git config --system http.sslVerify false
+              git config --system user.email eventSimulator@example.com
+              git config --system credential.helper '!aws codecommit credential-helper $@'
+              git config --system user.name "EventInstance"
+              git config --global user.name "EventInstance"
+              git config --global user.email eventSimulator@example.com
+              git config --global credential.helper '!aws codecommit credential-helper $@'
+              git config --global credential.UseHttpPath true
+              mkdir /usr/local/project
+              cd /usr/local/project/
+              git init
+              git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsService-Repository
+              cd /usr/local/project/MythicalMysfitsService-Repository/
+              cp -r /usr/local/aws-modern-application-workshop/module-4/app/* .
+              git add .
+              git commit -m "Update service code backend to enable additional website features."
+              git push
+            - NLBDnsName: !GetAtt MysfitsNLB.DNSName
 
 
+  #module5
+  s3BucketForStreamingCode:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+  codeCommitStreamingRepository:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Mythical Mysfits
+      RepositoryName: MythicalMysfitsStreamingService-Repository
+  
+  # module6 
+  CodeCommitMythicalMysfitsQuestionsService:
+    Type: AWS::CodeCommit::Repository
+    Properties:
+      RepositoryDescription: Mythical Mysfits
+      RepositoryName: MythicalMysfitsQuestionsService-Repository
+  s3BucketForQuestionsService:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+  module6fC:
+      Type: AWS::EC2::Instance
+      DependsOn: [codeCommitStreamingRepository, s3BucketForStreamingCode]
+      Properties:
+        InstanceType: c5.4xlarge
+        ImageId: ami-0d5d9d301c853a04a
+        KeyName: misfits
+        IamInstanceProfile: !Ref misfitsDemonstratorIAMInstanceProfile
+        SubnetId: !Ref PublicSubnetOne
+        SecurityGroupIds:
+          - !GetAtt misfitsDemonstratorSG.GroupId
+        UserData: 
+          'Fn::Base64': !Sub |
+              #!/bin/bash
+              exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
+              apt-get update -qq
+              apt-get install awscli python-pip apache2 linuxbrew-wrapper -y
+              /etc/init.d/apache2 start
+              cd /usr/local
+              git clone -b python https://github.com/aws-samples/aws-modern-application-workshop
+              mkdir /usr/local/project
+              cd /usr/local/project/
+              chmod -R a+wr  .
+              git config --global http.sslVerify false
+              git config --global credential.UseHttpPath true
+              git config --global user.name "EventInstance"
+              git config --global user.email eventSimulator@example.com
+              git config --global credential.helper '!aws codecommit credential-helper $@'
+              git config --system credential.helper '!aws codecommit credential-helper $@'
+              git config --system credential.UseHttpPath true
+              git config --system http.sslVerify false
+              git config --system user.email eventSimulator@example.com
+              git config --system user.name "EventInstance"
+              git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsQuestionsService-Repository
+              cd /usr/local/project/MythicalMysfitsQuestionsService-Repository/
+              cp -r /usr/local/aws-modern-application-workshop/module-6/app/* .
+              cp -r /usr/local/aws-modern-application-workshop/module-6/cfn/* .
+              su - ubuntu -c 'linuxbrew --version'
+              su - ubuntu -c 'linuxbrew tap aws/tap'
+              su - ubuntu -c 'linuxbrew install aws-sam-cli'
+              /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam --version              
+              #/home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam package --template-file ./customer-questions.yml --output-template-file ./transformed-questions.yml  --s3-bucket ${s3BucketForQuestionsService}
+              #aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-questions.yml --stack-name MythicalMysfitsQuestionsService-Stack --capabilities CAPABILITY_IAM --parameter-overrides AdministratorEmailAddress=${EmailAddress} --region ${AWS::Region}
+              
+              # stack created
+              cd /usr/local/aws-modern-application-workshop/module-6/web
+              sed -i "s/awsRegion = 'REPLACE_ME'/awsRegion = \'${AWS::Region}\'/g" index.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" index.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" index.html
 
+              sed -i "s/mysfitsApiEndpoint = 'REPLACE_ME'/mysfitsApiEndpoint = \'https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[?name==`MysfitsApi`].[id]' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              # streaming API change in index.html
+              aws cloudformation describe-stack-resources --stack-name MythicalMysfitsStreamingStack --region us-east-2 --query 'StackResources[?LogicalResourceId==`ClickProcessingApi`].[PhysicalResourceId]' --output text >> /usr/local/project/streamingapiendpoint.txt
+              sed -i "s/streamingApiEndpoint = 'REPLACE_ME'/streamingApiEndpoint = \'https:\/\/$(cat /usr/local/project/streamingapiendpoint.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              #questions API change in index.html
+              aws cloudformation describe-stack-resources --stack-name MythicalMysfitsQuestionsService-Stack --region us-east-2 --query 'StackResources[?LogicalResourceId==`QuestionsApi`].[PhysicalResourceId]' --output text >> /usr/local/project/questionsapi.txt
+              sed -i "s/questionsApiEndpoint = 'REPLACE_ME'/questionsApiEndpoint = \'https:\/\/$(cat /usr/local/project/questionsapi.txt).execute-api.${AWS::Region}.amazonaws.com\/prod\'/g" index.html
+              
+              aws s3 cp index.html s3://${s3BucketForDemo}/
 
+              aws apigateway update-stage --rest-api-id $(cat /usr/local/project/questionsapi.txt) --region "${AWS::Region}" --stage-name prod --patch-operations op=replace,path=/tracingEnabled,value=true
+              
+              cd /usr/local/project/MythicalMysfitsQuestionsService-Repository/
+              sed -i "s/\#patch/patch/g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/\#from/from/g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/\#patch/patch/g" ProcessQuestionsStream/mysfitsProcessStream.py
+              sed -i "s/\#from/from/g" ProcessQuestionsStream/mysfitsProcessStream.py
+              sed -i "s/\#//g" PostQuestionsService/mysfitsPostQuestion.py
+              sed -i "s/UNCOMMENT/\#UNCOMMENT/g" PostQuestionsService/mysfitsPostQuestion.py
+              /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.33.1/bin/sam package --template-file ./customer-questions.yml --output-template-file ./transformed-questions.yml  --s3-bucket ${s3BucketForQuestionsService}
+              aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-questions.yml --stack-name MythicalMysfitsQuestionsService-Stack --capabilities CAPABILITY_IAM --parameter-overrides AdministratorEmailAddress=${EmailAddress} --region ${AWS::Region}
+              
 
+              
+              #PREVIOUS CODE JUST FOR TESTING: 
 
+              #aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-streaming.yml --stack-name MythicalMysfitsStreamingStack --capabilities CAPABILITY_IAM --region ${AWS::Region}
+              
+              #
+              #
+              #
+              cp -R /usr/local/aws-modern-application-workshop/module-5/web/* /var/www/html/
+              cp -R /usr/local/aws-modern-application-workshop/module-6/web/* /var/www/html/
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" register.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" register.html
+              sed -i "s/cognitoUserPoolClientId = 'REPLACE_ME'/cognitoUserPoolClientId = \'${CognitoUserPoolClient}\'/g" confirm.html
+              sed -i "s/cognitoUserPoolId = 'REPLACE_ME'/cognitoUserPoolId = \'${CognitoUserPool}\'/g" confirm.html
+              #aws s3 cp --recursive /usr/local/aws-modern-application-workshop/module-4/web/ s3://${s3BucketForDemo}/
+              #cp -R /usr/local/aws-modern-application-workshop/module-5/web/* /var/www/html/
+              #mkdir /usr/local/project
+              #cd /usr/local/project/
+              
+              #git clone https://git-codecommit.${AWS::Region}.amazonaws.com/v1/repos/MythicalMysfitsStreamingService-Repository
+              #cd /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              #cp -r /usr/local/aws-modern-application-workshop/module-5/app/streaming/* /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              #cp -r /usr/local/aws-modern-application-workshop/module-5/cfn/* /usr/local/project/MythicalMysfitsStreamingService-Repository/
+              #pip install requests -t .
+              #sed -i "s/REPLACE_ME_API_ENDPOINT/https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod/g" /usr/local/project/MythicalMysfitsStreamingService-Repository/streamProcessor.py
+              #git add .
+              #git commit -m "New stream processing service."
+              #git push
+              #su - ubuntu -c 'linuxbrew --version'
+              #su - ubuntu -c 'linuxbrew tap aws/tap'
+              #su - ubuntu -c 'linuxbrew install aws-sam-cli'
+              #/home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.32.0/bin/sam --version
+              #pwd
+              #cd /var/www/html/
+              #
 
 
 
@@ -299,6 +414,12 @@ Resources:
               Effect: Allow
               Principal: '*'
               Action: 's3:GetObject'
+              Condition: 
+                IpAddress:
+                  aws:SourceIp:
+                  - '54.240.193.129'
+                  - '58.173.163.189'
+                  - '52.95.4.13'
               Resource: !Join 
                 - ''
                 - - 'arn:aws:s3:::'

@@ -255,11 +255,6 @@ Resources:
               Effect: Allow
               Principal: '*'
               Action: 's3:GetObject'
-              Condition: 
-                IpAddress:
-                  aws:SourceIp:
-                  - '54.240.193.129'
-                  - '58.173.163.189'
               Resource: !Join 
                 - ''
                 - - 'arn:aws:s3:::'

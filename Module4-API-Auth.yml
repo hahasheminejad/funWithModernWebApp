@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: This stack deploys MythicalMysfits all the way to completion of Module 2 
+Description: This stack deploys MythicalMysfits all the way to completion of Module 4 
 
 Parameters:
   EmailAddress:
@@ -313,12 +313,6 @@ Resources:
               Effect: Allow
               Principal: '*'
               Action: 's3:GetObject'
-              Condition: 
-                IpAddress:
-                  aws:SourceIp:
-                  - '54.240.193.129'
-                  - '58.173.163.189'
-                  - '52.95.4.13'
               Resource: !Join 
                 - ''
                 - - 'arn:aws:s3:::'
