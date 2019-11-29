@@ -1,7 +1,7 @@
-# Deploy Module 5 - X-Ray
+# Deploy Module 6 - X-Ray
 What are we doing: 
 
-Deploying XRay 
+Deploying XRay with a new microservice
 
 https://github.com/aws-samples/aws-modern-application-workshop/tree/python/module-6  into cloudformation
 
@@ -11,7 +11,7 @@ Let's get a service map
 
 1. Go to  https://github.com/AndrewG77/funWithModernWebApp/CloudFormation
 2. Download the file Module6-XRay and save it anywhere on your computer
-3. Please do the change-set, modify parameters and execute as before. Remember to choose REPLACE current template
+3. Please do the change-set, modify parameters and execute as before. Remember to choose REPLACE current template (still use MythicalMysfits)
 
 
 
@@ -25,22 +25,15 @@ Let's get a service map
 
 Be aware: 
 
-a) Reference: https://github.com/aws-samples/aws-modern-application-workshop/tree/python/module-5
+a) Reference: https://github.com/aws-samples/aws-modern-application-workshop/tree/python/module-6
 b) You can face errors
 c) Please raise your hand and we will help.  This is hands on and we expect issues. 
 
 # Discussion focus: 
 
-1) Go to the Ec2 Console - see instance replace
-2) Go to Code Commit - see new repo - talk about why ? Decouple / Codebase becomes less monolythic 
-3) Click on the real-time-streaming.yml - another cloud formation template - HOW did we do that ?
-4) Look at https://www.youtube.com/watch?v=1dzihtC5LJ0
-5) Look at index.html again. (view source) - have a look at two endpoints - why did we do that ? - why not just one ?
-
+Recap
 
 
 # Hands On:
 
-1. Explore the stack as it is now
-2. Find the output in the new s3 bucket - clickstreaming file, see what is there inside that file (new clickstreamingbucket was created)
-3. Look at all the different stack you now have - how many resources do you have  all up ? 
+1. XRay 

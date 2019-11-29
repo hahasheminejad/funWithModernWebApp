@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: This stack deploys MythicalMysfits all the way to completion of Module 2 
+Description: This stack deploys MythicalMysfits all the way to completion of Module 6 
 
 Parameters:
   EmailAddress:
@@ -287,7 +287,8 @@ Resources:
               sed -i "s/UNCOMMENT/\#UNCOMMENT/g" PostQuestionsService/mysfitsPostQuestion.py
               /home/ubuntu/.linuxbrew/Cellar/aws-sam-cli/0.34.0/bin/sam package --template-file ./customer-questions.yml --output-template-file ./transformed-questions.yml  --s3-bucket ${s3BucketForQuestionsService}
               aws cloudformation deploy --template-file /usr/local/project/MythicalMysfitsQuestionsService-Repository/transformed-questions.yml --stack-name MythicalMysfitsQuestionsService-Stack --capabilities CAPABILITY_IAM --parameter-overrides AdministratorEmailAddress=${EmailAddress} --region ${AWS::Region}
-              
+              curl -X POST https://bj6bdmrb81.execute-api.us-east-1.amazonaws.com/prod/FeedbackService --data '{ "module": "${Module}","feeling":"${Feeling}","comment":"${Comment}", "email": "${EmailAddress}", "accountId": ${AWS::AccountId}, "rating":"${Rating}" }'
+
 
 
 
