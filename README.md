@@ -1,4 +1,4 @@
-# funWithModernWebApp
+# Modern Web App - Accelerated Hands on Workshop
 
 What are we doing: 
 
