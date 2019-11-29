@@ -249,6 +249,9 @@ Resources:
               git add .
               git commit -m "Update service code backend to enable additional website features."
               git push
+              cd /usr/local/aws-modern-application-workshop/module-4/web
+              sed -i "s/REPLACE_ME/https:\/\/$(aws apigateway get-rest-apis --region ${AWS::Region} --query 'items[*].id' --output text).execute-api.${AWS::Region}.amazonaws.com\/prod/g" index.html
+              aws s3 cp --recursive /usr/local/aws-modern-application-workshop/module-4/web/ s3://${s3BucketForDemo}/              
               curl -X POST https://bj6bdmrb81.execute-api.us-east-1.amazonaws.com/prod/FeedbackService --data '{ "module": "${Module}","feeling":"${Feeling}","comment":"${Comment}", "email": "${EmailAddress}", "accountId": ${AWS::AccountId}, "rating":"${Rating}" }'
             - NLBDnsName: !GetAtt MysfitsNLB.DNSName
             

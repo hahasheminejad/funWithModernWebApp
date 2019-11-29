@@ -52,6 +52,9 @@ c) Please raise your hand and we will help.  This is hands on and we expect issu
 7) Find Bellefontaine
 8) Show the ModuleMysfitsAutoDemo
 9) Show the curl command 
+10) Show the Ec2 instance in the console
+11) Show the website
+12) Show the index.html 
 
 
 # Hands On 10 minute activity

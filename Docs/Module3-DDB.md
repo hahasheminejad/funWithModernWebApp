@@ -52,3 +52,5 @@ c) Please raise your hand and we will help.  This is hands on and we expect issu
 2. Go to the actual instruction in the AWS-Samples Github page and have a read
 3. Go to DynamoDB and change Gretta to Bellafontaine, watch it change on your page, change a few things around - have some fun. 
 4. Go to CodeCommit, Repositories, MythicalMysfitsService-Repository find the file mythicalMysfitsService.py
+5. Go to the website and use the filtering
+6. Find the index.html and have a look at it.  What is the javascript framework being referenced ? 
