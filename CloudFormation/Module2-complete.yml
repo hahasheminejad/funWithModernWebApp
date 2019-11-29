@@ -323,7 +323,7 @@ Resources:
               Protocol: "http"
   MythicalMysfitsService:
       Type: AWS::ECS::Service
-      DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB ]
+      DependsOn: [s3BucketForDemo,MysfitsECRRepository, MythicalMysfitsLogs, MysfitsNLB, MysfitsNLBTargetGroup ]
       Properties: 
         ServiceName: MythicalMysfits-Service
         Cluster: !Ref MythicalMysfitsCluster
