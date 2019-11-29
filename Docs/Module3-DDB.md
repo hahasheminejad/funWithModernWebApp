@@ -8,7 +8,7 @@ https://github.com/aws-samples/aws-modern-application-workshop/tree/python/modul
 
 # Instructions
 
-1. Go to  https://github.com/AndrewG77/funWithModernWebApp/CloudFormation
+1. Go to  https://github.com/AndrewG77/funWithModernWebApp/tree/master/CloudFormation
 2. Download the file Module3-DDB and save it anywhere on your computer
 3. Go to your AWS console, make sure the region is us-east-2
 4. Click Services - go to CloudFormation
