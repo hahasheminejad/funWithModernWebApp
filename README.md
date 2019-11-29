@@ -17,3 +17,5 @@ In this tutorial we build the first set of components of the modern web app.  To
 2. Choose the region Ohio - Us-east-2.  THIS IS IMPORTANT. The entire demo is only in this region.  Do not use any other regions. 
 
 3. Go to Services, EC2, click "Key Pairs", Create a key pair called mysfits.  This is case sensitive.  If you created Mysfits, MYSFITS - you will not deploy and things will start failing.  If you have misspelt it - just create a new one. 
+
+4. Once you have your voucher - apply it as per instructions in the email.
