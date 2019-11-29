@@ -14,7 +14,7 @@ into cloudformation
 
 # Instructions
 
-1. Go to  https://github.com/AndrewG77/funWithModernWebApp/CloudFormation
+1. Go to  https://github.com/AndrewG77/funWithModernWebApp/tree/master/CloudFormation
 2. Download the file Module-2 and save it anywhere on your computer
 3. Go to your AWS console, make sure the region is us-east-2
 4. Click Services - go to CloudFormation
